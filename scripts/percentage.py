@@ -1,4 +1,7 @@
 # percentage calculator
+# Created by David Elgut
+# Date Created 10/14/22
+# Last Updated 10/14/22
 
 number = input("Hello: What number would you like to find the percentage today?\n") 
 
