@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 #Barista Script
 
 #Made my David Elgut on 09/27/22
