@@ -1,3 +1,8 @@
+#!/usr/bin/env python3
+
+#Made my David Elgut on 10/25/22
+#Last Updated on 10/28/22
+
 import os
 # Importing Fernet recipe to use for encryption
 from cryptography.fernet import Fernet
