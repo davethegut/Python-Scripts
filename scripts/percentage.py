@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 # percentage calculator
 # Created by David Elgut
 # Date Created 10/14/22
