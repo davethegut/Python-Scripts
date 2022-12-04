@@ -121,6 +121,8 @@ elif milk_order == "Almond Milk":
     milk_price = 1
 elif milk_order == "Skim Milk":
     milk_price = 1
+elif milk_order == "Whole Milk" or milk_order == "2% Milk" or milk_order == "Half-and-half":
+    milk_price = 0
 else:
     print("sorry, we don't have any of that")
     exit()
