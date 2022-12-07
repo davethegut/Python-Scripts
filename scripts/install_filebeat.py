@@ -16,5 +16,5 @@ else:
 # Start and enable filebeat service
 subprocess.run(["systemctl", "start", "filebeat"])
 subprocess.run(["systemctl", "enable", "filebeat"])
-subprocess.run(["systemctl", "status", "filebeat"])
+subprocess.run(["systemctl", "status", "filebeat.service"])
 print("Filebeat has been installed and started successfully.")
