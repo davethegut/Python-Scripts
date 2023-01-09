@@ -201,14 +201,37 @@ with open('/etc/graylog/server/server.conf', 'w') as f:
 # Based on the user input, and then writing it back to the 
 # server.conf file.
   
-# Install pwgen for creating the hash (just an idea - this can be deleted if we don't use the cli functions)
+# Install pwgen for creating the hash
 subprocess.run(["sudo", "apt", "install", "pwgen", "-y"])
 
-# Create the hash password for passwords_secret in graylog.conf file
+# Here we will be creating and writing the first inital hash 
+# for the variable "password_secret=" in the graylog.conf file
+# Open the file in read mode
+with open('/etc/graylog/server/server.conf', 'r') as conf_file:
+    conf_lines = conf_file.readlines()
 
-# Create the hash password for root_password_sha2 in graylog.conf file
+# Find the line with "password_secret =" and store its index
+pw_index = -1
+for l, line in enumerate(conf_lines):
+    if line.startswith('password_secret ='):
+        pw_index = l
+        break
 
-# Write the hashes to their respective parts in the graylog.conf file 
+# Generate a 96-character long password
+new_password = subprocess.run(["pwgen", "-N", "1", "-s", "96"], capture_output=True).stdout.decode("utf-8").strip()
+
+# Replace the line with "password_secret = " with the new password, keeping the existing content on the line
+pw_parts = conf_lines[pw_index].split('=')
+pw_parts[1] = f'{pw_parts[1].strip()} {new_password}\n'
+conf_lines[pw_index] = '='.join(pw_parts)
+
+# Open the file in write mode and overwrite it with the modified lines
+with open('/etc/graylog/server/server.conf', 'w') as conf_file:
+    conf_file.writelines(conf_lines)
+
+# This is the section where we will ask the user for a password via an input statement
+# Then use that string to generate a shasum 256 from the string
+# and write it back to the server.conf file.
 
 # Reload the daemon and enable the Graylog Enterprise service
 subprocess.run(["sudo", "systemctl", "daemon-reload"])
