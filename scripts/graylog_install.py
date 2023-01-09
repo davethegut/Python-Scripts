@@ -164,29 +164,51 @@ subprocess.run(["sudo", "dpkg", "-i", "graylog-5.0-repository_latest.deb"])
 subprocess.run(["sudo", "apt-get", "update"])
 subprocess.run(["sudo", "apt-get", "install", "graylog-enterprise"])
 
+# This is the section of the graylog configuration process
+# Where we are using an input statement to write to the 
+# server.conf file and substituting it after the first 
+# "#http_bind_address" to use as the bind address
+# for when the user uses graylog 
 
-# Get the Graylog configuration values from the user
+# Open the server.conf file in read mode
+with open('/etc/graylog/server/server.conf', 'r') as f:
+    lines = f.readlines()
+
+# Find the line with "#http_bind_address = " and store its index
+index = -1
+for i, line in enumerate(lines):
+    if line.startswith('#http_bind_address = '):
+        index = i
+        break
+
+# Uncomment the line with "#http_bind_address = "
+lines[index] = lines[index].lstrip('#')
+
+# Prompt the user for input and store it in a variable
 graylog_bind_address = input('Enter the bind address for the Graylog server (e.g. 0.0.0.0:9000): ')
-graylog_admin_password = input('Enter the password for the admin user: ')
 
-# Install pwgen
+# Insert the user input after the line with "http_bind_address = "
+parts = lines[index].split('=')
+parts[1] = f' {graylog_bind_address}\n'
+lines[index] = '='.join(parts)
+
+
+# Open the file in write mode and overwrite it with the modified lines
+with open('/etc/graylog/server/server.conf', 'w') as f:
+    f.writelines(lines)
+
+# This is the section for generating the hashed passwords
+# Based on the user input, and then writing it back to the 
+# server.conf file.
+  
+# Install pwgen for creating the hash (just an idea - this can be deleted if we don't use the cli functions)
 subprocess.run(["sudo", "apt", "install", "pwgen", "-y"])
 
 # Create the hash password for passwords_secret in graylog.conf file
-password_secret = subprocess.check_output(["pwgen", "-N", "1", "-s", "96"])
-password_secret_output = password_secret.decode('utf-8').strip()
 
 # Create the hash password for root_password_sha2 in graylog.conf file
-root_password = subprocess.check_output(["echo", "-n", graylog_admin_password, "|", "shasum", "-a", "256"])
-root_password_output = root_password.decode('utf-8').strip()
 
-# Uncomment the http_bind_address line in the configuration file
-subprocess.run(["sudo", "sed", "-i", "-e", "105,105 s/#http_bind_address/http_bind_address/'", "/etc/graylog/server/server.conf"])
-
-# Append the Graylog configuration values to the end of the file
-subprocess.run(["sudo", "sed", "-i", "/http_bind_address = .*/http_bind_address = " + graylog_bind_address + "/g", "/etc/graylog/server/server.conf"])
-subprocess.run(["sudo", "sed", "-is/password_secret = .*/password_secret = " + password_secret_output + "/g", "/etc/graylog/server/server.conf"])
-subprocess.run(["sudo", "sed", "-is/root_password_sha2 = .*/root_password_sha2 = " + root_password_output + "/g", "/etc/graylog/server/server.conf"])
+# Write the hashes to their respective parts in the graylog.conf file 
 
 # Reload the daemon and enable the Graylog Enterprise service
 subprocess.run(["sudo", "systemctl", "daemon-reload"])
