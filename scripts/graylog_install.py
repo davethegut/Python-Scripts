@@ -16,7 +16,7 @@ import hashlib
 import shutil
 import re
 
-"""
+
 # Import the public key used by the package management system
 subprocess.run(["sudo", "apt-key", "adv", "--keyserver", "hkp://keyserver.ubuntu.com:80", "--recv", "9DA31620334BD75D9DCB49F368818C72E52529D4"])
 
@@ -41,7 +41,7 @@ subprocess.run(["systemctl", "enable", "mongodb.service"])
 #restart MongoDB service and check if it is running properly
 subprocess.run(["sudo", "systemctl", "restart", "mongodb.service"])
 subprocess.run(["sudo", "systemctl", "status", "mongodb"])
-"""
+
 ################################################
 #		OPENSEARCH INSTALL
 ################################################
@@ -282,4 +282,6 @@ subprocess.run(["sudo", "systemctl", "start", "graylog-server.service"])
 subprocess.run(["sudo", "systemctl", "status", "graylog-server.service"])
 
 # List all active services and grep for Graylog
-# subprocess.run(["sudo", "systemctl", "--type=service", "--state=active", "|", "grep", "graylog"])
+#subprocess.run(["sudo", "systemctl", "--type=service", "--state=active", "|", "grep", "graylog"])
+
+print('Graylog is up and running, navigate to ' + graylog_bind_address + "to log into your gralog server.\n')
