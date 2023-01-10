@@ -12,6 +12,7 @@
 ################################################
 
 import subprocess
+import hashlib
 import shutil
 import re
 
@@ -164,11 +165,13 @@ subprocess.run(["sudo", "dpkg", "-i", "graylog-5.0-repository_latest.deb"])
 subprocess.run(["sudo", "apt-get", "update"])
 subprocess.run(["sudo", "apt-get", "install", "graylog-enterprise"])
 
+###############################################################
 # This is the section of the graylog configuration process
 # Where we are using an input statement to write to the 
 # server.conf file and substituting it after the first 
 # "#http_bind_address" to use as the bind address
 # for when the user uses graylog 
+###############################################################
 
 # Open the server.conf file in read mode
 with open('/etc/graylog/server/server.conf', 'r') as f:
@@ -196,10 +199,12 @@ lines[index] = '='.join(parts)
 # Open the file in write mode and overwrite it with the modified lines
 with open('/etc/graylog/server/server.conf', 'w') as f:
     f.writelines(lines)
-
+    
+###############################################################
 # This is the section for generating the hashed passwords
 # Based on the user input, and then writing it back to the 
 # server.conf file.
+###############################################################
   
 # Install pwgen for creating the hash
 subprocess.run(["sudo", "apt", "install", "pwgen", "-y"])
@@ -228,10 +233,43 @@ conf_lines[pw_index] = '='.join(pw_parts)
 # Open the file in write mode and overwrite it with the modified lines
 with open('/etc/graylog/server/server.conf', 'w') as conf_file:
     conf_file.writelines(conf_lines)
+print(new_password + ' is the hash associated with the password_secret variable in your server.conf file.\n')
 
 # This is the section where we will ask the user for a password via an input statement
 # Then use that string to generate a shasum 256 from the string
 # and write it back to the server.conf file.
+
+# Open the file in read mode
+with open('/etc/graylog/server/server.conf', 'r') as hash_conf_file:
+ hash_conf_lines = hash_conf_file.readlines()
+    
+# Find the line with "password_secret =" and store its index
+hash_index = -1
+for p, line in enumerate(hash_conf_lines):
+  if line.startswith('root_password_sha2 ='):
+    hash_index = p
+    break  
+print(p)
+
+password_shasum = input("Please create a password to use with your Graylog account: ")
+password_bytes = password_shasum.encode()
+
+# Generate the SHA-256 hash
+hash_object = hashlib.sha256()
+hash_object.update(password_bytes)
+password_hash = hash_object.hexdigest()
+
+# Replace the line with "root_password_sha2 =" with the new password, keeping the existing content on the line
+hash_parts = hash_conf_lines[hash_index].split('=')
+hash_parts[1] = f'{hash_parts[1].strip()} {password_hash}\n'
+hash_conf_lines[hash_index] = '='.join(hash_parts)
+
+# Open the file in write mode and overwrite it with the modified lines
+with open('/etc/graylog/server/server.conf', 'w') as hash_conf_file:
+    hash_conf_file.writelines(hash_conf_lines)
+
+#print the has for root_password_sha2
+print(password_hash + ' is the hash associated with the root_password_sha2 variable in your server.conf file.\n')
 
 # Reload the daemon and enable the Graylog Enterprise service
 subprocess.run(["sudo", "systemctl", "daemon-reload"])
@@ -239,6 +277,9 @@ subprocess.run(["sudo", "systemctl", "enable", "graylog-server.service"])
 
 # Start the Graylog Enterprise service
 subprocess.run(["sudo", "systemctl", "start", "graylog-server.service"])
+
+# Check the status of Graylog
+subprocess.run(["sudo", "systemctl", "status", "graylog-server.service"])
 
 # List all active services and grep for Graylog
 # subprocess.run(["sudo", "systemctl", "--type=service", "--state=active", "|", "grep", "graylog"])
