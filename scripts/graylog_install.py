@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 ###############################################
 # David Elgut david.elgut@graylog.com
-# Evan Tepsic 
-
-# Last modified 1/5/2023
+#
+#
+# Last modified 1/11/2023
 # Version 2022-12-27
 ###############################################
 
@@ -16,31 +16,29 @@ import hashlib
 import shutil
 import re
 
-
-# Import the public key used by the package management system
-subprocess.run(["sudo", "apt-key", "adv", "--keyserver", "hkp://keyserver.ubuntu.com:80", "--recv", "9DA31620334BD75D9DCB49F368818C72E52529D4"])
+wget_process = subprocess.Popen(["wget", "-qO", "-", "https://www.mongodb.org/static/pgp/server-5.0.asc"], stdout=subprocess.PIPE)
+apt_key_process = subprocess.Popen(["sudo", "apt-key", "add", "-"], stdin=wget_process.stdout, stdout=subprocess.PIPE)
+output, error = apt_key_process.communicate()
 
 # Create a list file for MongoDB
-subprocess.run(["echo", "deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu focal/mongodb-org/5.0 multiverse", "|", "sudo", "tee", "/etc/apt/sources.list.d/mongodb-org-5.0.list"])
+with open("/etc/apt/sources.list.d/mongodb-org-5.0.list", "w") as f:
+    f.write("deb [ arch=amd64 ] https://repo.mongodb.org/apt/ubuntu bionic/mongodb-org/5.0 multiverse")
 
-# Reload the package database
-subprocess.run(["sudo", "apt-get", "update"])
+# update package index
+subprocess.run(["sudo","apt-get","update"], check=True)
 
 # Install the MongoDB package
-subprocess.run(["sudo", "apt-get", "install", "-y", "mongodb"])
+subprocess.run(["sudo", "apt-get", "install", "-y", "mongodb-org=5.0.14", "mongodb-org-database=5.0.14", "mongodb-org-server=5.0.14", "mongodb-org-shell=5.0.14", "mongodb-org-mongos=5.0.14", "mongodb-org-tools=5.0.14"], check=True)
 
 # Start the MongoDB service
-subprocess.run(["systemctl", "start", "mongodb"])
-
-#reload the daemon
-subprocess.run(["sudo", "systemctl", "daemon-reload"])
+subprocess.run(["systemctl", "start", "mongod"])
 
 # Enable the MongoDB service to start on boot
-subprocess.run(["systemctl", "enable", "mongodb.service"])
+subprocess.run(["systemctl", "enable", "mongod"])
 
 #restart MongoDB service and check if it is running properly
-subprocess.run(["sudo", "systemctl", "restart", "mongodb.service"])
-subprocess.run(["sudo", "systemctl", "status", "mongodb"])
+subprocess.run(["sudo", "systemctl", "restart", "mongod"])
+subprocess.run(["sudo", "systemctl", "status", "mongod"])
 
 ################################################
 #		OPENSEARCH INSTALL
@@ -280,8 +278,10 @@ subprocess.run(["sudo", "systemctl", "start", "graylog-server.service"])
 
 # Check the status of Graylog
 subprocess.run(["sudo", "systemctl", "status", "graylog-server.service"])
+subprocess.run(["q"])
 
 # List all active services and grep for Graylog
 #subprocess.run(["sudo", "systemctl", "--type=service", "--state=active", "|", "grep", "graylog"])
 
-print('Graylog is up and running, navigate to ' + graylog_bind_address + "to log into your gralog server.\n')
+print("Graylog is up and running, navigate to " + graylog_bind_address + "to log into your gralog server.\n")
+
