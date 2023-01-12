@@ -15,6 +15,8 @@ import subprocess
 import hashlib
 import shutil
 import re
+import os
+
 
 wget_process = subprocess.Popen(["wget", "-qO", "-", "https://www.mongodb.org/static/pgp/server-5.0.asc"], stdout=subprocess.PIPE)
 apt_key_process = subprocess.Popen(["sudo", "apt-key", "add", "-"], stdin=wget_process.stdout, stdout=subprocess.PIPE)
@@ -171,32 +173,51 @@ subprocess.run(["sudo", "apt-get", "install", "graylog-enterprise"])
 # for when the user uses graylog 
 ###############################################################
 
-# Open the server.conf file in read mode
-with open('/etc/graylog/server/server.conf', 'r') as f:
-    lines = f.readlines()
+# Check if the server.conf file has "http_bind_address"
+# And if it does, continue with the script
+# The reason I am adding this is so that in the future
+# When it is run, it does not overwrite the bind address
 
-# Find the line with "#http_bind_address = " and store its index
-index = -1
-for i, line in enumerate(lines):
-    if line.startswith('#http_bind_address = '):
-        index = i
-        break
+def check_http_bind_address(file_path):
+    http_bind_address = "http_bind_address"
+    if os.path.isfile(file_path):
+        with open(file_path, "r") as f:
+            for line in f:
+                if line.startswith(http_bind_address):
+                    return True
+    return False
 
-# Uncomment the line with "#http_bind_address = "
-lines[index] = lines[index].lstrip('#')
+file_path = "/etc/graylog/server/server.conf"
 
-# Prompt the user for input and store it in a variable
-graylog_bind_address = input('Enter the bind address for the Graylog server (e.g. 0.0.0.0:9000): ')
+if check_http_bind_address(file_path):
+    print("http_bind_address exists in the server.conf file.")
+else:
+    print("http_bind_address does not exist in the server.conf file.")
+    # Open the server.conf file in read mode
+    with open('/etc/graylog/server/server.conf', 'r') as f:
+        lines = f.readlines()
 
-# Insert the user input after the line with "http_bind_address = "
-parts = lines[index].split('=')
-parts[1] = f' {graylog_bind_address}\n'
-lines[index] = '='.join(parts)
+    # Find the line with "#http_bind_address = " and store its index
+    index = -1
+    for i, line in enumerate(lines):
+        if line.startswith('#http_bind_address = '):
+            index = i
+            break
 
+    # Uncomment the line with "#http_bind_address = "
+    lines[index] = lines[index].lstrip('#')
 
-# Open the file in write mode and overwrite it with the modified lines
-with open('/etc/graylog/server/server.conf', 'w') as f:
-    f.writelines(lines)
+    # Prompt the user for input and store it in a variable
+    graylog_bind_address = input('Enter the bind address for the Graylog server (e.g. 0.0.0.0:9000): ')
+
+    # Insert the user input after the line with "http_bind_address = "
+    parts = lines[index].split('=')
+    parts[1] = f' {graylog_bind_address}\n'
+    lines[index] = '='.join(parts)
+
+    # Open the file in write mode and overwrite it with the modified lines
+    with open('/etc/graylog/server/server.conf', 'w') as f:
+        f.writelines(lines)
     
 ###############################################################
 # This is the section for generating the hashed passwords
@@ -269,6 +290,30 @@ with open('/etc/graylog/server/server.conf', 'w') as hash_conf_file:
 #print the has for root_password_sha2
 print(password_hash + ' is the hash associated with the root_password_sha2 variable in your server.conf file.\n')
 
+###########################################################
+# This section is to create a backup of the server.conf
+# File to ensure that everytime we write to it, we create
+# A backup (for ex: server.conf.bu) file, that caps
+# Out at 5 copies, (server.conf.bu5)
+###########################################################
+
+def backup_file(file_path):
+    dir_path, file_name = os.path.split(file_path)
+    backup_file_name = file_name + ".bu"
+    backup_path = os.path.join(dir_path, backup_file_name)
+    backups = sorted([f for f in os.listdir(dir_path) if f.startswith(file_name + ".bu")])
+    while len(backups) >= 5:
+        oldest_backup = backups.pop(0)
+        os.remove(os.path.join(dir_path, oldest_backup))
+    backup_path = os.path.join(dir_path, file_name + ".bu"+str(len(backups)+1))
+    shutil.copy2(file_path, backup_path)
+
+data = "server.conf content"
+backup_file(file_path)
+
+##########################################################
+# Continue the Graylog install Process
+##########################################################
 # Reload the daemon and enable the Graylog Enterprise service
 subprocess.run(["sudo", "systemctl", "daemon-reload"])
 subprocess.run(["sudo", "systemctl", "enable", "graylog-server.service"])
