@@ -3,7 +3,7 @@
 # David Elgut david.elgut@graylog.com
 #
 #
-# Last modified 1/11/2023
+# Last modified 1/12/2023
 # Version 2022-12-27
 ###############################################
 
@@ -18,30 +18,33 @@ import re
 import os
 
 
-wget_process = subprocess.Popen(["wget", "-qO", "-", "https://www.mongodb.org/static/pgp/server-5.0.asc"], stdout=subprocess.PIPE)
-apt_key_process = subprocess.Popen(["sudo", "apt-key", "add", "-"], stdin=wget_process.stdout, stdout=subprocess.PIPE)
-output, error = apt_key_process.communicate()
+output = subprocess.check_output("mongod --version", shell=True)
+version = output.decode("utf-8").strip()
+version = float(re.search(r'\d+\.\d+', version).group(0))
+print (version)
 
-# Create a list file for MongoDB
-with open("/etc/apt/sources.list.d/mongodb-org-5.0.list", "w") as f:
-    f.write("deb [ arch=amd64 ] https://repo.mongodb.org/apt/ubuntu bionic/mongodb-org/5.0 multiverse")
+if version < 5.0:
+    # Create a list file for MongoDB
+    with open("/etc/apt/sources.list.d/mongodb-org-5.0.list", "w") as f:
+        f.write("deb [ arch=amd64 ] https://repo.mongodb.org/apt/ubuntu bionic/mongodb-org/5.0 multiverse")
 
 # update package index
-subprocess.run(["sudo","apt-get","update"], check=True)
+    subprocess.run(["sudo","apt-get","update"], check=True)
 
 # Install the MongoDB package
-subprocess.run(["sudo", "apt-get", "install", "-y", "mongodb-org=5.0.14", "mongodb-org-database=5.0.14", "mongodb-org-server=5.0.14", "mongodb-org-shell=5.0.14", "mongodb-org-mongos=5.0.14", "mongodb-org-tools=5.0.14"], check=True)
+    subprocess.run(["sudo", "apt-get", "install", "-y", "mongodb-org=5.0.14", "mongodb-org-database=5.0.14", "mongodb-org-server=5.0.14", "mongodb-org-shell=5.0.14", "mongodb-org-mongos=5.0.14", "mongodb-org-tools=5.0.14"], check=True)
 
 # Start the MongoDB service
-subprocess.run(["systemctl", "start", "mongod"])
+    subprocess.run(["systemctl", "start", "mongod"])
 
 # Enable the MongoDB service to start on boot
-subprocess.run(["systemctl", "enable", "mongod"])
+    subprocess.run(["systemctl", "enable", "mongod"])
 
 #restart MongoDB service and check if it is running properly
-subprocess.run(["sudo", "systemctl", "restart", "mongod"])
-subprocess.run(["sudo", "systemctl", "status", "mongod"])
-
+    subprocess.run(["sudo", "systemctl", "restart", "mongod"])
+    subprocess.run(["sudo", "systemctl", "status", "mongod"])
+else:
+    print("MongoDB version is 5.0 or higher.")
 ################################################
 #		OPENSEARCH INSTALL
 ################################################
@@ -173,6 +176,7 @@ subprocess.run(["sudo", "apt-get", "install", "graylog-enterprise"])
 # for when the user uses graylog 
 ###############################################################
 
+
 # Check if the server.conf file has "http_bind_address"
 # And if it does, continue with the script
 # The reason I am adding this is so that in the future
@@ -224,71 +228,102 @@ else:
 # Based on the user input, and then writing it back to the 
 # server.conf file.
 ###############################################################
-  
-# Install pwgen for creating the hash
-subprocess.run(["sudo", "apt", "install", "pwgen", "-y"])
+def check_password_secret(file_path):
+    if os.path.isfile(file_path):
+        with open(file_path, "r") as f:
+            for line in f:
+                if line.startswith("password_secret = ") and len(line.split("=")[1].strip())>0:
+                    return True
+    return False
 
-# Here we will be creating and writing the first inital hash 
-# for the variable "password_secret=" in the graylog.conf file
-# Open the file in read mode
-with open('/etc/graylog/server/server.conf', 'r') as conf_file:
-    conf_lines = conf_file.readlines()
+file_path = "/etc/graylog/server/server.conf"
 
-# Find the line with "password_secret =" and store its index
-pw_index = -1
-for l, line in enumerate(conf_lines):
-    if line.startswith('password_secret ='):
-        pw_index = l
-        break
+if check_password_secret(file_path):
+    print("password_secret has a value in the server.conf file.")
+else:
+    print("password_secret does not have a value in the server.conf file.")
+    # Install pwgen for creating the hash
+    subprocess.run(["sudo", "apt", "install", "pwgen", "-y"])
 
-# Generate a 96-character long password
-new_password = subprocess.run(["pwgen", "-N", "1", "-s", "96"], capture_output=True).stdout.decode("utf-8").strip()
+    # Here we will be creating and writing the first inital hash 
+    # for the variable "password_secret=" in the graylog.conf file
+    # Open the file in read mode
+    with open('/etc/graylog/server/server.conf', 'r') as conf_file:
+        conf_lines = conf_file.readlines()
 
-# Replace the line with "password_secret = " with the new password, keeping the existing content on the line
-pw_parts = conf_lines[pw_index].split('=')
-pw_parts[1] = f'{pw_parts[1].strip()} {new_password}\n'
-conf_lines[pw_index] = '='.join(pw_parts)
+    # Find the line with "password_secret =" and store its index
+    pw_index = -1
+    for l, line in enumerate(conf_lines):
+        if line.startswith('password_secret ='):
+            pw_index = l
+            break
 
-# Open the file in write mode and overwrite it with the modified lines
-with open('/etc/graylog/server/server.conf', 'w') as conf_file:
-    conf_file.writelines(conf_lines)
-print(new_password + ' is the hash associated with the password_secret variable in your server.conf file.\n')
+    # Generate a 96-character long password
+    new_password = subprocess.run(["pwgen", "-N", "1", "-s", "96"], capture_output=True).stdout.decode("utf-8").strip()
+
+    # Replace the line with "password_secret = " with the new password, keeping the existing content on the line
+    pw_parts = conf_lines[pw_index].split('=')
+    pw_parts[1] = f'{pw_parts[1].strip()} {new_password}\n'
+    conf_lines[pw_index] = '='.join(pw_parts)
+
+    # Open the file in write mode and overwrite it with the modified lines
+    with open('/etc/graylog/server/server.conf', 'w') as conf_file:
+        conf_file.writelines(conf_lines)
+    print(new_password + ' is the hash associated with the password_secret variable in your server.conf file.\n')
 
 # This is the section where we will ask the user for a password via an input statement
 # Then use that string to generate a shasum 256 from the string
 # and write it back to the server.conf file.
+def check_root_password_sha2(file_path):
+    root_password_sha2 = "root_password_sha2 ="
+    if os.path.isfile(file_path):
+        with open(file_path, "r") as f:
+            for line in f:
+                if line.startswith(root_password_sha2):
+                    if line.strip().endswith("="):
+                        return False
+                    else:
+                        return True
+    return False
 
-# Open the file in read mode
-with open('/etc/graylog/server/server.conf', 'r') as hash_conf_file:
- hash_conf_lines = hash_conf_file.readlines()
+file_path = "/etc/graylog/server/server.conf"
+
+if check_root_password_sha2(file_path):
+    print("root_password_sha2 exists in the server.conf file.")
+else:
+    print("root_password_sha2 does not exist in the server.conf file.")
     
-# Find the line with "password_secret =" and store its index
-hash_index = -1
-for p, line in enumerate(hash_conf_lines):
-  if line.startswith('root_password_sha2 ='):
-    hash_index = p
-    break  
-print(p)
+    # Open the file in read mode
+    with open('/etc/graylog/server/server.conf', 'r') as hash_conf_file:
+        hash_conf_lines = hash_conf_file.readlines()
 
-password_shasum = input("Please create a password to use with your Graylog account: ")
-password_bytes = password_shasum.encode()
+    # Find the line with "root_password_sha2 =" and store its index
+    hash_index = -1
+    for p, line in enumerate(hash_conf_lines):
+        if line.startswith('root_password_sha2 ='):
+            hash_index = p
+            break  
+    print(p)
 
-# Generate the SHA-256 hash
-hash_object = hashlib.sha256()
-hash_object.update(password_bytes)
-password_hash = hash_object.hexdigest()
+    password_shasum = input("Please create a password to use with your Graylog account: ")
+    password_bytes = password_shasum.encode()
 
-# Replace the line with "root_password_sha2 =" with the new password, keeping the existing content on the line
-hash_parts = hash_conf_lines[hash_index].split('=')
-hash_parts[1] = f'{hash_parts[1].strip()} {password_hash}\n'
-hash_conf_lines[hash_index] = '='.join(hash_parts)
+    # Generate the SHA-256 hash
+    hash_object = hashlib.sha256()
+    hash_object.update(password_bytes)
+    password_hash = hash_object.hexdigest()
 
-# Open the file in write mode and overwrite it with the modified lines
-with open('/etc/graylog/server/server.conf', 'w') as hash_conf_file:
-    hash_conf_file.writelines(hash_conf_lines)
+    # Replace the line with "root_password_sha2 =" with the new password, keeping the existing content on the line
+    hash_parts = hash_conf_lines[hash_index].split('=')
+    hash_parts[1] = f'{hash_parts[1].strip()} {password_hash}\n'
+    hash_conf_lines[hash_index] = '='.join(hash_parts)
 
-#print the has for root_password_sha2
-print(password_hash + ' is the hash associated with the root_password_sha2 variable in your server.conf file.\n')
+    # Open the file in write mode and overwrite it with the modified lines
+    with open('/etc/graylog/server/server.conf', 'w') as hash_conf_file:
+        hash_conf_file.writelines(hash_conf_lines)
+
+    #print the has for root_password_sha2
+    print(password_hash + ' is the hash associated with the root_password_sha2 variable in your server.conf file.\n')
 
 ###########################################################
 # This section is to create a backup of the server.conf
@@ -321,12 +356,9 @@ subprocess.run(["sudo", "systemctl", "enable", "graylog-server.service"])
 # Start the Graylog Enterprise service
 subprocess.run(["sudo", "systemctl", "start", "graylog-server.service"])
 
-# Check the status of Graylog
-subprocess.run(["sudo", "systemctl", "status", "graylog-server.service"])
-subprocess.run(["q"])
+output = subprocess.check_output("sudo systemctl status graylog-server.service", shell=True)
+output = output.decode("utf-8").strip()
+print(output)
 
-# List all active services and grep for Graylog
-#subprocess.run(["sudo", "systemctl", "--type=service", "--state=active", "|", "grep", "graylog"])
-
-print("Graylog is up and running, navigate to " + graylog_bind_address + "to log into your gralog server.\n")
+print("Graylog is up and running. Installation process is complete\n")
 
