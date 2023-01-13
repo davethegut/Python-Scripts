@@ -384,6 +384,7 @@ subprocess.run(["sudo", "systemctl", "enable", "graylog-server.service"])
 
 # Start the Graylog Enterprise service
 subprocess.run(["sudo", "systemctl", "start", "graylog-server.service"])
+subprocess.run(["sudo", "systemctl", "restart", "graylog-server.service"])
 
 output = subprocess.check_output("sudo systemctl status graylog-server.service", shell=True)
 output = output.decode("utf-8").strip()
