@@ -17,14 +17,13 @@ import shutil
 import re
 import os
 
-
-output = subprocess.check_output("mongod --version", shell=True)
-version = output.decode("utf-8").strip()
-version = float(re.search(r'\d+\.\d+', version).group(0))
-print (version)
-
-if version < 5.0:
-    # Create a list file for MongoDB
+output = subprocess.run(["which", "mongod"], capture_output=True)
+if output.returncode != 0:
+    print("MongoDB is not installed on this system.")
+# Add the MongoDB repository public key
+    subprocess.run(["sudo", "apt-key", "adv", "--keyserver", "hkp://keyserver.ubuntu.com:80", "--recv-keys", "B00A0BD1E2C63C11"], check=True)
+    
+# Create a list file for MongoDB
     with open("/etc/apt/sources.list.d/mongodb-org-5.0.list", "w") as f:
         f.write("deb [ arch=amd64 ] https://repo.mongodb.org/apt/ubuntu bionic/mongodb-org/5.0 multiverse")
 
@@ -44,7 +43,37 @@ if version < 5.0:
     subprocess.run(["sudo", "systemctl", "restart", "mongod"])
     subprocess.run(["sudo", "systemctl", "status", "mongod"])
 else:
-    print("MongoDB version is 5.0 or higher.")
+    output = subprocess.check_output("mongod --version", shell=True)
+    version = output.decode("utf-8").strip()
+    version = float(re.search(r'\d+\.\d+', version).group(0))
+    print (version)
+
+    if version < 5.0:
+        # Add the MongoDB repository public key
+        subprocess.run(["sudo", "apt-key", "adv", "--keyserver", "hkp://keyserver.ubuntu.com:80", "--recv-keys", "B00A0BD1E2C63C11"], check=True)
+
+        # Create a list file for MongoDB
+        with open("/etc/apt/sources.list.d/mongodb-org-5.0.list", "w") as f:
+            f.write("deb [ arch=amd64 ] https://repo.mongodb.org/apt/ubuntu bionic/mongodb-org/5.0 multiverse")
+
+        # update package index
+        subprocess.run(["sudo","apt-get","update"], check=True)
+
+        # Install the MongoDB package
+        subprocess.run(["sudo", "apt-get", "install", "-y", "mongodb-org=5.0.14", "mongodb-org-database=5.0.14", "mongodb-org-server=5.0.14", "mongodb-org-shell=5.0.14", "mongodb-org-mongos=5.0.14", "mongodb-org-tools=5.0.14"], check=True)
+
+        # Start the MongoDB service
+        subprocess.run(["systemctl", "start", "mongod"])
+
+        # Enable the MongoDB service to start on boot
+        subprocess.run(["systemctl", "enable", "mongod"])
+
+        #restart MongoDB service and check if it is running properly
+        subprocess.run(["sudo", "systemctl", "restart", "mongod"])
+        subprocess.run(["sudo", "systemctl", "status", "mongod"])
+    else:
+        print("MongoDB version is 5.0 or higher.")
+
 ################################################
 #		OPENSEARCH INSTALL
 ################################################
