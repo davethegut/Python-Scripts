@@ -3,7 +3,7 @@
 # David Elgut david.elgut@graylog.com
 #
 #
-# Last modified 1/12/2023
+# Last modified 1/13/2023
 # Version 2022-12-27
 ###############################################
 
@@ -188,10 +188,10 @@ subprocess.run(["sudo", "systemctl", "start", "opensearch.service"])
 ################################################
 
 # Download the repository package
-subprocess.run(["wget", "https://packages.graylog2.org/repo/packages/graylog-5.0-repository_latest.deb"])
+subprocess.run(["wget", "https://packages.graylog2.org/repo/packages/graylog-5.1-repository_latest.deb"])
 
 # Install the repository package
-subprocess.run(["sudo", "dpkg", "-i", "graylog-5.0-repository_latest.deb"])
+subprocess.run(["sudo", "dpkg", "-i", "graylog-5.1-repository_latest.deb"])
 
 # Update the package list and install Graylog Enterprise
 subprocess.run(["sudo", "apt-get", "update"])
@@ -391,4 +391,5 @@ output = output.decode("utf-8").strip()
 print(output)
 
 print("Graylog is up and running. Installation process is complete\n")
+
 
