@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 ###############################################
-# David Elgut david.elgut@graylog.com
+# David Elgut dselgut@gmail.com
 #
 #
 # Last modified 1/13/2023
